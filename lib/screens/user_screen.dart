@@ -15,20 +15,15 @@ class _UserScreenState extends State<UserScreen> {
   List filteredProducts = [];
 
   final TextEditingController searchController = TextEditingController();
+  final Map<int, TextEditingController> qtyControllers = {};
 
-  // 🔄 LOAD DATA FROM DATABASE
   Future load() async {
-    try {
-      final data = await SupabaseService.getProducts();
-      products = data;
-      filteredProducts = data;
-      setState(() {});
-    } catch (e) {
-      print("Error loading products: $e");
-    }
+    final data = await SupabaseService.getProducts();
+    products = data;
+    filteredProducts = data;
+    setState(() {});
   }
 
-  // 🔍 SEARCH FUNCTION
   void search(String value) {
     filteredProducts = products
         .where((p) =>
@@ -44,21 +39,11 @@ class _UserScreenState extends State<UserScreen> {
   }
 
   @override
-  void dispose() {
-    searchController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
 
       appBar: AppBar(
         title: const Text("User Panel"),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -73,81 +58,155 @@ class _UserScreenState extends State<UserScreen> {
         ],
       ),
 
-      // 🟢 BODY
       body: Column(
         children: [
 
-          // 🔍 SEARCH BAR
+          // SEARCH
           Padding(
             padding: const EdgeInsets.all(10),
             child: TextField(
               controller: searchController,
               onChanged: search,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: "Search product...",
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                prefixIcon: Icon(Icons.search),
               ),
             ),
           ),
 
-          // 📦 PRODUCT LIST
           Expanded(
-            child: filteredProducts.isEmpty
-                ? const Center(child: Text("No Products"))
-                : ListView.builder(
+            child: ListView.builder(
               itemCount: filteredProducts.length,
               itemBuilder: (context, index) {
 
                 final p = filteredProducts[index];
-
-                // 🔒 SAFE PARSE (NO CRASH)
                 int qty = int.tryParse(p['quantity'].toString()) ?? 0;
 
+                qtyControllers.putIfAbsent(index, () => TextEditingController());
+
                 return Card(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
-                  child: ListTile(
-                    title: Text(p['name'] ?? "No Name"),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      children: [
 
-                    subtitle: Text(
-                      qty == 0
-                          ? "Out of Stock ❌"
-                          : "Qty: $qty",
-                      style: TextStyle(
-                        color: qty == 0
-                            ? Colors.red
-                            : Colors.black,
-                      ),
-                    ),
+                        ListTile(
+                          title: Text(p['name']),
+                          subtitle: Text(
+                            qty == 0
+                                ? "Out of Stock ❌"
+                                : "Qty: $qty",
+                          ),
+                        ),
 
-                    // 🛒 SELL BUTTON
-                    trailing: IconButton(
-                      icon: const Icon(Icons.shopping_cart,
-                          color: Colors.green),
+                        TextField(
+                          controller: qtyControllers[index],
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            hintText: "Enter quantity",
+                          ),
+                        ),
 
-                      onPressed: () async {
+                        const SizedBox(height: 8),
 
-                        final result = await SupabaseService.sellProduct(
-                          p['id'],
-                          qty,
-                        );
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
 
-                        if (result == "out") {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Out of Stock ❌")),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Product Sold ✅")),
-                          );
-                          load(); // 🔄 refresh list
-                        }
-                      },
+                            ElevatedButton(
+                              onPressed: () {
+                                int current = int.tryParse(
+                                    qtyControllers[index]?.text ?? "0") ?? 0;
+                                qtyControllers[index]?.text =
+                                    (current + 1).toString();
+                              },
+                              child: const Text("+1"),
+                            ),
+
+                            ElevatedButton(
+                              onPressed: () {
+                                int current = int.tryParse(
+                                    qtyControllers[index]?.text ?? "0") ?? 0;
+                                qtyControllers[index]?.text =
+                                    (current + 5).toString();
+                              },
+                              child: const Text("+5"),
+                            ),
+
+                            ElevatedButton(
+                              onPressed: () {
+                                int current = int.tryParse(
+                                    qtyControllers[index]?.text ?? "0") ?? 0;
+                                qtyControllers[index]?.text =
+                                    (current + 10).toString();
+                              },
+                              child: const Text("+10"),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        ElevatedButton(
+                          onPressed: () async {
+
+                            int sellQty = int.tryParse(
+                                qtyControllers[index]?.text ?? "0") ?? 0;
+
+                            if (sellQty <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Enter valid quantity")),
+                              );
+                              return;
+                            }
+
+                            if (sellQty > qty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Not enough stock")),
+                              );
+                              return;
+                            }
+
+                            bool? confirm = await showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text("Confirm"),
+                                content: Text("Sell $sellQty items?"),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text("No")),
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text("Yes")),
+                                ],
+                              ),
+                            );
+
+                            if (confirm != true) return;
+
+                            int newQty = qty - sellQty;
+
+                            await SupabaseService.updateProductQuantity(
+                                p['id'], newQty);
+
+                            // 🔥 NEW FEATURE (SALES HISTORY)
+                            await SupabaseService.addSale(
+                              p['name'],
+                              sellQty,
+                            );
+
+                            qtyControllers[index]?.clear();
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Sold Successfully ✅")),
+                            );
+
+                            load();
+                          },
+                          child: const Text("Sell"),
+                        ),
+                      ],
                     ),
                   ),
                 );
