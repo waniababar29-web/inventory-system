@@ -1,6 +1,6 @@
-import 'login_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
+import 'login_screen.dart';
 
 class UserScreen extends StatefulWidget {
   const UserScreen({super.key});
@@ -14,21 +14,45 @@ class _UserScreenState extends State<UserScreen> {
   List products = [];
   List filteredProducts = [];
 
-  final TextEditingController searchController = TextEditingController();
-  final Map<int, TextEditingController> qtyControllers = {};
+  final TextEditingController searchController =
+  TextEditingController();
 
+  // quantity controllers
+  Map<int, TextEditingController> qtyControllers = {};
+
+  // LOAD DATA
   Future load() async {
-    final data = await SupabaseService.getProducts();
+
+    final data =
+    await SupabaseService.getProducts();
+
     products = data;
     filteredProducts = data;
+
+    // create controllers
+    qtyControllers.clear();
+
+    for (var p in data) {
+
+      qtyControllers[p['id']] =
+          TextEditingController(text: "1");
+    }
+
     setState(() {});
   }
 
+  // SEARCH
   void search(String value) {
-    filteredProducts = products
-        .where((p) =>
-        p['name'].toString().toLowerCase().contains(value.toLowerCase()))
-        .toList();
+
+    filteredProducts = products.where((p) {
+
+      return p['name']
+          .toString()
+          .toLowerCase()
+          .contains(value.toLowerCase());
+
+    }).toList();
+
     setState(() {});
   }
 
@@ -40,18 +64,38 @@ class _UserScreenState extends State<UserScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
 
       appBar: AppBar(
+
         title: const Text("User Panel"),
+
+        leading: IconButton(
+
+          icon: const Icon(Icons.arrow_back),
+
+          onPressed: () =>
+              Navigator.pop(context),
+        ),
+
         actions: [
+
           IconButton(
+
             icon: const Icon(Icons.logout),
+
             onPressed: () {
-              Navigator.pushAndRemoveUntil(
+
+              Navigator.pushReplacement(
+
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
+
+                MaterialPageRoute(
+
+                  builder: (context) =>
+                  const LoginScreen(),
+                ),
               );
             },
           )
@@ -61,158 +105,298 @@ class _UserScreenState extends State<UserScreen> {
       body: Column(
         children: [
 
-          // SEARCH
+          // 🔍 SEARCH BAR
           Padding(
+
             padding: const EdgeInsets.all(10),
+
             child: TextField(
+
               controller: searchController,
+
               onChanged: search,
-              decoration: const InputDecoration(
+
+              decoration: InputDecoration(
+
                 hintText: "Search product...",
-                prefixIcon: Icon(Icons.search),
+
+                prefixIcon:
+                const Icon(Icons.search),
+
+                filled: true,
+
+                fillColor:
+                Colors.grey.shade200,
+
+                border: OutlineInputBorder(
+
+                  borderRadius:
+                  BorderRadius.circular(12),
+
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
 
+          // 📦 LIST
           Expanded(
+
             child: ListView.builder(
-              itemCount: filteredProducts.length,
-              itemBuilder: (context, index) {
 
-                final p = filteredProducts[index];
-                int qty = int.tryParse(p['quantity'].toString()) ?? 0;
+              itemCount:
+              filteredProducts.length,
 
-                qtyControllers.putIfAbsent(index, () => TextEditingController());
+              itemBuilder:
+                  (context, index) {
+
+                final p =
+                filteredProducts[index];
+
+                int qty =
+                    int.tryParse(
+                      p['quantity'].toString(),
+                    ) ??
+                        0;
+
+                final controller =
+                qtyControllers[p['id']]!;
 
                 return Card(
+
+                  elevation: 3,
+
+                  margin:
+                  const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+
+                  shape:
+                  RoundedRectangleBorder(
+
+                    borderRadius:
+                    BorderRadius.circular(12),
+                  ),
+
                   child: Padding(
-                    padding: const EdgeInsets.all(10),
+
+                    padding:
+                    const EdgeInsets.all(10),
+
                     child: Column(
                       children: [
 
-                        ListTile(
-                          title: Text(p['name']),
-                          subtitle: Text(
-                            qty == 0
-                                ? "Out of Stock ❌"
-                                : "Qty: $qty",
-                          ),
-                        ),
-
-                        TextField(
-                          controller: qtyControllers[index],
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            hintText: "Enter quantity",
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
+                        // NAME + STOCK
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+
+                          mainAxisAlignment:
+                          MainAxisAlignment
+                              .spaceBetween,
+
                           children: [
 
-                            ElevatedButton(
-                              onPressed: () {
-                                int current = int.tryParse(
-                                    qtyControllers[index]?.text ?? "0") ?? 0;
-                                qtyControllers[index]?.text =
-                                    (current + 1).toString();
-                              },
-                              child: const Text("+1"),
+                            Text(
+
+                              p['name'],
+
+                              style:
+                              const TextStyle(
+
+                                fontSize: 16,
+
+                                fontWeight:
+                                FontWeight.bold,
+                              ),
                             ),
 
-                            ElevatedButton(
-                              onPressed: () {
-                                int current = int.tryParse(
-                                    qtyControllers[index]?.text ?? "0") ?? 0;
-                                qtyControllers[index]?.text =
-                                    (current + 5).toString();
-                              },
-                              child: const Text("+5"),
-                            ),
+                            Container(
 
-                            ElevatedButton(
-                              onPressed: () {
-                                int current = int.tryParse(
-                                    qtyControllers[index]?.text ?? "0") ?? 0;
-                                qtyControllers[index]?.text =
-                                    (current + 10).toString();
-                              },
-                              child: const Text("+10"),
-                            ),
+                              padding:
+                              const EdgeInsets
+                                  .symmetric(
+
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+
+                              decoration:
+                              BoxDecoration(
+
+                                color: qty == 0
+                                    ? Colors.red
+                                    : Colors.green,
+
+                                borderRadius:
+                                BorderRadius
+                                    .circular(8),
+                              ),
+
+                              child: Text(
+
+                                qty == 0
+                                    ? "Out"
+                                    : "Stock: $qty",
+
+                                style:
+                                const TextStyle(
+                                  color:
+                                  Colors.white,
+                                ),
+                              ),
+                            )
                           ],
                         ),
 
                         const SizedBox(height: 10),
 
-                        ElevatedButton(
-                          onPressed: () async {
+                        // ➕➖ + SELL
+                        Row(
+                          children: [
 
-                            int sellQty = int.tryParse(
-                                qtyControllers[index]?.text ?? "0") ?? 0;
+                            // ➖
+                            IconButton(
 
-                            if (sellQty <= 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Enter valid quantity")),
-                              );
-                              return;
-                            }
-
-                            if (sellQty > qty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Not enough stock")),
-                              );
-                              return;
-                            }
-
-                            bool? confirm = await showDialog(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: const Text("Confirm"),
-                                content: Text("Sell $sellQty items?"),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text("No")),
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text("Yes")),
-                                ],
+                              icon: const Icon(
+                                Icons.remove,
                               ),
-                            );
 
-                            if (confirm != true) return;
+                              onPressed: () {
 
-                            int newQty = qty - sellQty;
+                                int val =
+                                    int.tryParse(
+                                      controller.text,
+                                    ) ??
+                                        1;
 
-                            await SupabaseService.updateProductQuantity(
-                                p['id'], newQty);
+                                if (val > 1) {
 
-                            // 🔥 NEW FEATURE (SALES HISTORY)
-                            await SupabaseService.addSale(
-                              p['name'],
-                              sellQty,
-                            );
+                                  controller.text =
+                                      (val - 1)
+                                          .toString();
+                                }
+                              },
+                            ),
 
-                            qtyControllers[index]?.clear();
+                            // INPUT
+                            SizedBox(
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Sold Successfully ✅")),
-                            );
+                              width: 50,
 
-                            load();
-                          },
-                          child: const Text("Sell"),
-                        ),
+                              child: TextField(
+
+                                controller:
+                                controller,
+
+                                textAlign:
+                                TextAlign.center,
+
+                                keyboardType:
+                                TextInputType
+                                    .number,
+                              ),
+                            ),
+
+                            // ➕
+                            IconButton(
+
+                              icon: const Icon(
+                                Icons.add,
+                              ),
+
+                              onPressed: () {
+
+                                int val =
+                                    int.tryParse(
+                                      controller.text,
+                                    ) ??
+                                        1;
+
+                                controller.text =
+                                    (val + 1)
+                                        .toString();
+                              },
+                            ),
+
+                            const Spacer(),
+
+                            // 🛒 SELL
+                            ElevatedButton(
+
+                              onPressed: () async {
+
+                                int sellQty =
+                                    int.tryParse(
+                                      controller.text,
+                                    ) ??
+                                        1;
+
+                                if (sellQty > qty) {
+
+                                  ScaffoldMessenger
+                                      .of(context)
+                                      .showSnackBar(
+
+                                    const SnackBar(
+                                      content: Text(
+                                        "Not enough stock ❌",
+                                      ),
+                                    ),
+                                  );
+
+                                  return;
+                                }
+
+                                int newQty =
+                                    qty - sellQty;
+
+                                // ✅ UPDATE PRODUCT
+                                await SupabaseService
+                                    .updateProductQuantity(
+
+                                  p['id'],
+
+                                  newQty,
+                                );
+
+                                // ✅ ADD SALE
+                                await SupabaseService
+                                    .addSale(
+
+                                  p['name'],
+
+                                  sellQty,
+                                );
+
+                                // ✅ INSTANT UI UPDATE
+                                p['quantity'] =
+                                    newQty.toString();
+
+                                setState(() {});
+
+                                ScaffoldMessenger
+                                    .of(context)
+                                    .showSnackBar(
+
+                                  const SnackBar(
+                                    content:
+                                    Text("Sold ✅"),
+                                  ),
+                                );
+                              },
+
+                              child:
+                              const Text("Sell"),
+                            )
+                          ],
+                        )
                       ],
                     ),
                   ),
                 );
               },
             ),
-          ),
+          )
         ],
       ),
     );
